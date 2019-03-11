@@ -26,6 +26,89 @@
 #include "arrow/util/visibility.h"
 #include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 
+
+#include <fcntl.h>
+
+#ifndef O_RDONLY
+#define O_RDONLY _O_RDONLY
+#endif
+
+#ifndef O_WRONLY 
+#define O_WRONLY _O_WRONLY
+#endif
+
+#ifndef O_APPEND 
+#define O_APPEND _O_APPEND 
+#endif
+
+#ifndef EINTERNAL
+#define EINTERNAL 255 
+#endif
+
+
+/** All APIs set errno to meaningful values */
+#ifdef __cplusplus
+extern  "C" {
+#endif
+
+  /**
+    * Some utility decls used in libhdfs.
+    */
+
+  typedef int32_t   tSize; /// size of data for read/write io ops 
+  typedef time_t    tTime; /// time type in seconds
+  typedef int64_t   tOffset;/// offset within the file
+  typedef uint16_t  tPort; /// port
+  typedef enum tObjectKind {
+      kObjectKindFile = 'F',
+      kObjectKindDirectory = 'D',
+  } tObjectKind;
+
+  /**
+    * The C reflection of org.apache.org.hadoop.FileSystem .
+    */
+  typedef void* hdfsFS;
+
+  /**
+    * The C equivalent of org.apache.org.hadoop.FSData(Input|Output)Stream .
+    */
+  enum hdfsStreamType
+  {
+      HDFS_UNINITIALIZED = 0,
+      HDFS_INPUT = 1,
+      HDFS_OUTPUT = 2,
+  };
+
+  /**
+    * The 'file-handle' to a file in hdfs.
+    */
+  struct hdfsFile_internal {
+      void* file;
+      enum hdfsStreamType type;
+  };
+  typedef struct hdfsFile_internal* hdfsFile;
+
+  /** 
+    * hdfsFileInfo - Information about a file/directory.
+    */
+  typedef struct  {
+      tObjectKind mKind;   /* file or directory */
+      char *mName;         /* the name of the file */
+      tTime mLastMod;      /* the last modification time for the file in seconds */
+      tOffset mSize;       /* the size of the file in bytes */
+      short mReplication;    /* the count of replicas */
+      tOffset mBlockSize;  /* the block size for the file */
+      char *mOwner;        /* the owner of the file */
+      char *mGroup;        /* the group associated with the file */
+      short mPermissions;  /* the permissions associated with the file */
+      tTime mLastAccess;    /* the last access time for the file in seconds */
+  } hdfsFileInfo;
+
+#ifdef __cplusplus
+}
+#endif
+
+
 using std::size_t;
 
 struct hdfsBuilder;

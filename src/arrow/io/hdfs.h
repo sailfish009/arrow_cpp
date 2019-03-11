@@ -28,68 +28,6 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-/** All APIs set errno to meaningful values */
-#ifdef __cplusplus
-extern  "C" {
-#endif
-
-  /**
-    * Some utility decls used in libhdfs.
-    */
-
-  typedef int32_t   tSize; /// size of data for read/write io ops 
-  typedef time_t    tTime; /// time type in seconds
-  typedef int64_t   tOffset;/// offset within the file
-  typedef uint16_t  tPort; /// port
-  typedef enum tObjectKind {
-      kObjectKindFile = 'F',
-      kObjectKindDirectory = 'D',
-  } tObjectKind;
-
-  /**
-    * The C reflection of org.apache.org.hadoop.FileSystem .
-    */
-  typedef void* hdfsFS;
-
-  /**
-    * The C equivalent of org.apache.org.hadoop.FSData(Input|Output)Stream .
-    */
-  enum hdfsStreamType
-  {
-      UNINITIALIZED = 0,
-      INPUT = 1,
-      OUTPUT = 2,
-  };
-
-  /**
-    * The 'file-handle' to a file in hdfs.
-    */
-  struct hdfsFile_internal {
-      void* file;
-      enum hdfsStreamType type;
-  };
-  typedef struct hdfsFile_internal* hdfsFile;
-
-  /** 
-    * hdfsFileInfo - Information about a file/directory.
-    */
-  typedef struct  {
-      tObjectKind mKind;   /* file or directory */
-      char *mName;         /* the name of the file */
-      tTime mLastMod;      /* the last modification time for the file in seconds */
-      tOffset mSize;       /* the size of the file in bytes */
-      short mReplication;    /* the count of replicas */
-      tOffset mBlockSize;  /* the block size for the file */
-      char *mOwner;        /* the owner of the file */
-      char *mGroup;        /* the group associated with the file */
-      short mPermissions;  /* the permissions associated with the file */
-      tTime mLastAccess;    /* the last access time for the file in seconds */
-  } hdfsFileInfo;
-
-#ifdef __cplusplus
-}
-#endif
-
 namespace arrow {
 
 class Buffer;

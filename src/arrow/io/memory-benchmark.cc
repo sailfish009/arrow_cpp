@@ -75,11 +75,18 @@ using VectorType = __m256i;
 using VectorType = __m128i;
 #define VectorSet _mm_set1_epi32
 #define VectorLoad _mm_stream_load_si128
+
+#ifdef _MSC_VER
+#define VectorLoadAsm(SRC, DST) _mm_store_ps(reinterpret_cast<float*>(&DST), _mm_castsi128_ps(SRC))
+#define VectorStreamLoadAsm(SRC) _mm_stream_load_si128(reinterpret_cast<__m128i*>(&SRC))
+#else
 #define VectorLoadAsm(SRC, DST) \
   asm volatile("movaps %[src], %[dst]" : [dst] "=x"(DST) : [src] "m"(SRC) :)
-#define VectorStreamLoad _mm_stream_load_si128
 #define VectorStreamLoadAsm(SRC, DST) \
   asm volatile("movntdqa %[src], %[dst]" : [dst] "=x"(DST) : [src] "m"(SRC) :)
+#endif
+
+#define VectorStreamLoad _mm_stream_load_si128
 #define VectorStreamWrite _mm_stream_si128
 
 #endif
@@ -102,7 +109,9 @@ static void Read(void* src, void* dst, size_t size) {
   memset(&c, 0, sizeof(c));
   memset(&d, 0, sizeof(d));
 
-  benchmark::DoNotOptimize(a + b + c + d);
+  VectorType e = a + b + c + d;
+  benchmark::DoNotOptimize(e);
+  // benchmark::DoNotOptimize(a + b + c + d);
 }
 
 // See http://codearcana.com/posts/2013/05/18/achieving-maximum-memory-bandwidth.html
@@ -119,10 +128,15 @@ static void StreamRead(void* src, void* dst, size_t size) {
   memset(&d, 0, sizeof(d));
 
   for (size_t i = 0; i < size / sizeof(VectorType); i += 4) {
-    VectorStreamLoadAsm(simd[i], a);
-    VectorStreamLoadAsm(simd[i + 1], b);
-    VectorStreamLoadAsm(simd[i + 2], c);
-    VectorStreamLoadAsm(simd[i + 3], d);
+    a = VectorStreamLoadAsm(simd[i]);
+    b = VectorStreamLoadAsm(simd[i + 1]);
+    c = VectorStreamLoadAsm(simd[i + 2]);
+    d = VectorStreamLoadAsm(simd[i + 3]);
+
+    // VectorStreamLoadAsm(simd[i], a);
+    // VectorStreamLoadAsm(simd[i + 1], b);
+    // VectorStreamLoadAsm(simd[i + 2], c);
+    // VectorStreamLoadAsm(simd[i + 3], d);
   }
 
   benchmark::DoNotOptimize(a + b + c + d);

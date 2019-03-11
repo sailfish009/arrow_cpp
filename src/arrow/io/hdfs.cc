@@ -38,6 +38,7 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
+
 using std::size_t;
 
 namespace arrow {
