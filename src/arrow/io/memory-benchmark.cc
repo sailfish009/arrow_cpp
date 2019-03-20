@@ -44,6 +44,8 @@ static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::L3_CACHE);
 constexpr size_t kMemoryPerCore = 32 * 1024 * 1024;
 using BufferPtr = std::shared_ptr<Buffer>;
 
+#ifndef _MSC_VER
+
 #ifdef ARROW_AVX512
 
 using VectorType = __m512i;
@@ -70,27 +72,20 @@ using VectorType = __m256i;
   asm volatile("vmovntdqa %[src], %[dst]" : [dst] "=v"(DST) : [src] "m"(SRC) :)
 #define VectorStreamWrite _mm256_stream_si256
 
-#else
+#else  // ARROW_AVX2 not set
 
 using VectorType = __m128i;
 #define VectorSet _mm_set1_epi32
 #define VectorLoad _mm_stream_load_si128
-
-#ifdef _MSC_VER
-#define VectorLoadAsm(SRC, DST) _mm_store_ps(reinterpret_cast<float*>(&DST), _mm_castsi128_ps(SRC))
-#define VectorStreamLoadAsm(SRC) _mm_stream_load_si128(reinterpret_cast<__m128i*>(&SRC))
-#else
 #define VectorLoadAsm(SRC, DST) \
   asm volatile("movaps %[src], %[dst]" : [dst] "=x"(DST) : [src] "m"(SRC) :)
+#define VectorStreamLoad _mm_stream_load_si128
 #define VectorStreamLoadAsm(SRC, DST) \
   asm volatile("movntdqa %[src], %[dst]" : [dst] "=x"(DST) : [src] "m"(SRC) :)
-#endif
-
-#define VectorStreamLoad _mm_stream_load_si128
 #define VectorStreamWrite _mm_stream_si128
 
-#endif
-#endif
+#endif  // ARROW_AVX2
+#endif  // ARROW_AVX512
 
 static void Read(void* src, void* dst, size_t size) {
   const auto simd = static_cast<VectorType*>(src);
@@ -109,9 +104,7 @@ static void Read(void* src, void* dst, size_t size) {
   memset(&c, 0, sizeof(c));
   memset(&d, 0, sizeof(d));
 
-  VectorType e = a + b + c + d;
-  benchmark::DoNotOptimize(e);
-  // benchmark::DoNotOptimize(a + b + c + d);
+  benchmark::DoNotOptimize(a + b + c + d);
 }
 
 // See http://codearcana.com/posts/2013/05/18/achieving-maximum-memory-bandwidth.html
@@ -128,15 +121,10 @@ static void StreamRead(void* src, void* dst, size_t size) {
   memset(&d, 0, sizeof(d));
 
   for (size_t i = 0; i < size / sizeof(VectorType); i += 4) {
-    a = VectorStreamLoadAsm(simd[i]);
-    b = VectorStreamLoadAsm(simd[i + 1]);
-    c = VectorStreamLoadAsm(simd[i + 2]);
-    d = VectorStreamLoadAsm(simd[i + 3]);
-
-    // VectorStreamLoadAsm(simd[i], a);
-    // VectorStreamLoadAsm(simd[i + 1], b);
-    // VectorStreamLoadAsm(simd[i + 2], c);
-    // VectorStreamLoadAsm(simd[i + 3], d);
+    VectorStreamLoadAsm(simd[i], a);
+    VectorStreamLoadAsm(simd[i + 1], b);
+    VectorStreamLoadAsm(simd[i + 2], c);
+    VectorStreamLoadAsm(simd[i + 3], d);
   }
 
   benchmark::DoNotOptimize(a + b + c + d);
@@ -210,6 +198,8 @@ BENCHMARK_TEMPLATE(MemoryBandwidth, StreamRead)->Apply(SetMemoryBandwidthArgs);
 BENCHMARK_TEMPLATE(MemoryBandwidth, StreamWrite)->Apply(SetMemoryBandwidthArgs);
 BENCHMARK_TEMPLATE(MemoryBandwidth, StreamReadWrite)->Apply(SetMemoryBandwidthArgs);
 BENCHMARK_TEMPLATE(MemoryBandwidth, PlatformMemcpy)->Apply(SetMemoryBandwidthArgs);
+
+#endif  // _MSC_VER
 
 static void ParallelMemoryCopy(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t n_threads = state.range(0);

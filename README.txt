@@ -1,1 +1,1 @@
-cmake repackage of apache arrow
+cmake repackage of apache arrow : vs2019

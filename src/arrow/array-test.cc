@@ -259,11 +259,12 @@ TEST(TestNullBuilder, Basics) {
   ASSERT_OK(builder.AppendNull());
   ASSERT_OK(builder.Append(nullptr));
   ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.AppendNulls(2));
   ASSERT_OK(builder.Finish(&array));
 
   const auto& null_array = checked_cast<NullArray&>(*array);
-  ASSERT_EQ(null_array.length(), 3);
-  ASSERT_EQ(null_array.null_count(), 3);
+  ASSERT_EQ(null_array.length(), 5);
+  ASSERT_EQ(null_array.null_count(), 5);
 }
 
 // ----------------------------------------------------------------------
@@ -492,6 +493,22 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
   ASSERT_EQ(0, builder->length());
   ASSERT_EQ(0, builder->capacity());
   ASSERT_EQ(0, builder->null_count());
+}
+
+TEST(NumericBuilderAccessors, TestSettersGetters) {
+  int64_t datum = 42;
+  int64_t new_datum = 43;
+  NumericBuilder<Int64Type> builder(int64(), default_memory_pool());
+
+  builder.Reset();
+  ASSERT_OK(builder.Append(datum));
+  ASSERT_EQ(builder.GetValue(0), datum);
+
+  // Now update the value.
+  builder[0] = new_datum;
+
+  ASSERT_EQ(builder.GetValue(0), new_datum);
+  ASSERT_EQ(((const NumericBuilder<Int64Type>&)builder)[0], new_datum);
 }
 
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,

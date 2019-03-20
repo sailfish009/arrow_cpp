@@ -117,6 +117,35 @@ Status PyFlightResultStream::Next(std::unique_ptr<arrow::flight::Result>* result
   return CheckPyError();
 }
 
+PyFlightDataStream::PyFlightDataStream(
+    PyObject* data_source, std::unique_ptr<arrow::flight::FlightDataStream> stream)
+    : stream_(std::move(stream)) {
+  Py_INCREF(data_source);
+  data_source_.reset(data_source);
+}
+
+std::shared_ptr<arrow::Schema> PyFlightDataStream::schema() { return stream_->schema(); }
+
+Status PyFlightDataStream::Next(arrow::flight::FlightPayload* payload) {
+  return stream_->Next(payload);
+}
+
+PyGeneratorFlightDataStream::PyGeneratorFlightDataStream(
+    PyObject* generator, std::shared_ptr<arrow::Schema> schema,
+    PyGeneratorFlightDataStreamCallback callback)
+    : schema_(schema), callback_(callback) {
+  Py_INCREF(generator);
+  generator_.reset(generator);
+}
+
+std::shared_ptr<arrow::Schema> PyGeneratorFlightDataStream::schema() { return schema_; }
+
+Status PyGeneratorFlightDataStream::Next(arrow::flight::FlightPayload* payload) {
+  PyAcquireGIL lock;
+  callback_(generator_.obj(), payload);
+  return CheckPyError();
+}
+
 Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
                         const arrow::flight::FlightDescriptor& descriptor,
                         const std::vector<arrow::flight::FlightEndpoint>& endpoints,

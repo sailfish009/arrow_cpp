@@ -748,7 +748,7 @@ template <>
 Status ArrowColumnWriter::TypedWriteBatch<BooleanType, ::arrow::BooleanType>(
     const Array& array, int64_t num_levels, const int16_t* def_levels,
     const int16_t* rep_levels) {
-  bool* buffer;
+  bool* buffer = nullptr;
   RETURN_NOT_OK(ctx_->GetScratchData<bool>(array.length(), &buffer));
 
   const auto& data = static_cast<const BooleanArray&>(array);
@@ -782,7 +782,7 @@ template <>
 Status ArrowColumnWriter::TypedWriteBatch<ByteArrayType, ::arrow::BinaryType>(
     const Array& array, int64_t num_levels, const int16_t* def_levels,
     const int16_t* rep_levels) {
-  ByteArray* buffer;
+  ByteArray* buffer = nullptr;
   RETURN_NOT_OK(ctx_->GetScratchData<ByteArray>(num_levels, &buffer));
 
   const auto& data = static_cast<const BinaryArray&>(array);
@@ -1153,6 +1153,8 @@ Status WriteFileMetaData(const FileMetaData& file_metadata,
 }
 
 Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {
+  RETURN_NOT_OK(table.Validate());
+
   if (chunk_size <= 0 && table.num_rows() > 0) {
     return Status::Invalid("chunk size per row_group must be greater than 0");
   } else if (!table.schema()->Equals(*schema_, false)) {

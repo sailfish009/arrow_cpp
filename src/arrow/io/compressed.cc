@@ -226,8 +226,7 @@ std::shared_ptr<OutputStream> CompressedOutputStream::raw() const { return impl_
 // ----------------------------------------------------------------------
 // CompressedInputStream implementation
 
-class CompressedInputStream::Impl 
-{
+class CompressedInputStream::Impl {
  public:
   Impl(MemoryPool* pool, Codec* codec, const std::shared_ptr<InputStream>& raw)
       : pool_(pool), raw_(raw), codec_(codec), is_open_(true) {}

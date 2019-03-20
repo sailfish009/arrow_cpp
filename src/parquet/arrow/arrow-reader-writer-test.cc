@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "arrow/api.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
@@ -344,8 +345,8 @@ void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual
       auto c1 = actual.chunk(i);
       auto c2 = expected.chunk(i);
       if (!c1->Equals(*c2)) {
-        EXPECT_OK(::arrow::PrettyPrint(*c1, 0, &pp_result));
-        EXPECT_OK(::arrow::PrettyPrint(*c2, 0, &pp_expected));
+        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, &pp_result));
+        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c2, 0, &pp_expected));
         FAIL() << "Chunk " << i << " Got: " << pp_result.str()
                << "\nExpected: " << pp_expected.str();
       }
@@ -358,7 +359,7 @@ void PrintColumn(const Column& col, std::stringstream* ss) {
   for (int i = 0; i < carr.num_chunks(); ++i) {
     auto c1 = carr.chunk(i);
     *ss << "Chunk " << i << std::endl;
-    EXPECT_OK(::arrow::PrettyPrint(*c1, 0, ss));
+    ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, ss));
     *ss << std::endl;
   }
 }
@@ -1809,6 +1810,27 @@ auto GenerateList = [](int length, std::shared_ptr<::DataType>* type,
   MakeListArray(length, 100, type, array);
 };
 
+std::shared_ptr<Table> InvalidTable() {
+  auto type = ::arrow::int8();
+  auto field = ::arrow::field("a", type);
+  auto schema = ::arrow::schema({field, field});
+
+  // Invalid due to array size not matching
+  auto array1 = ArrayFromJSON(type, "[1, 2]");
+  auto array2 = ArrayFromJSON(type, "[1]");
+  return Table::Make(schema, {array1, array2});
+}
+
+TEST(TestArrowReadWrite, InvalidTable) {
+  // ARROW-4774: Shouldn't segfault on writing an invalid table.
+  auto sink = std::make_shared<InMemoryOutputStream>();
+  auto invalid_table = InvalidTable();
+
+  ASSERT_RAISES(Invalid, WriteTable(*invalid_table, ::arrow::default_memory_pool(), sink,
+                                    1, default_writer_properties(),
+                                    default_arrow_writer_properties()));
+}
+
 TEST(TestArrowReadWrite, TableWithChunkedColumns) {
   std::vector<ArrayFactory> functions = {GenerateInt32, GenerateList};
 
@@ -1889,17 +1911,17 @@ TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
       std::make_shared<::arrow::DictionaryArray>(dict_type, f1_values)};
 
   std::vector<std::shared_ptr<::arrow::Column>> columns;
-  auto column = MakeColumn("column", dict_arrays, false);
+  auto column = MakeColumn("dictionary", dict_arrays, true);
   columns.emplace_back(column);
 
   auto table = Table::Make(schema, columns);
 
   std::shared_ptr<Table> result;
-  DoSimpleRoundtrip(table, 1,
-                    // Just need to make sure that we make
-                    // a chunk size that is smaller than the
-                    // total number of values
-                    2, {}, &result);
+  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(table, 1,
+                                            // Just need to make sure that we make
+                                            // a chunk size that is smaller than the
+                                            // total number of values
+                                            2, {}, &result));
 
   std::vector<std::string> expected_values = {"first",  "second", "first", "third",
                                               "second", "third",  "first", "second",
@@ -1913,9 +1935,7 @@ TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
   // field, and it also turns into a nullable column
   columns.emplace_back(MakeColumn("dictionary", expected_array, true));
 
-  fields.clear();
-  fields.emplace_back(::arrow::field("dictionary", ::arrow::utf8()));
-  schema = ::arrow::schema(fields);
+  schema = ::arrow::schema({::arrow::field("dictionary", ::arrow::utf8())});
 
   auto expected_table = Table::Make(schema, columns);
 
@@ -2419,6 +2439,80 @@ TEST(TestArrowWriterAdHoc, SchemaMismatch) {
   auto tbl = ::arrow::Table::Make(table_schm, {col});
   ASSERT_RAISES(Invalid, writer->WriteTable(*tbl, 1));
 }
+
+// ----------------------------------------------------------------------
+// Tests for directly reading DictionaryArray
+class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
+ public:
+  void SetUp() override {
+    GenerateData(GetParam());
+    ASSERT_NO_FATAL_FAILURE(
+        WriteTableToBuffer(expected_dense_, expected_dense_->num_rows() / 2,
+                           default_arrow_writer_properties(), &buffer_));
+
+    properties_ = default_arrow_reader_properties();
+  }
+
+  void GenerateData(double null_probability) {
+    constexpr int num_unique = 100;
+    constexpr int repeat = 10;
+    constexpr int64_t min_length = 2;
+    constexpr int64_t max_length = 10;
+    ::arrow::random::RandomArrayGenerator rag(0);
+    auto dense_array = rag.StringWithRepeats(repeat * num_unique, num_unique, min_length,
+                                             max_length, null_probability);
+    expected_dense_ = MakeSimpleTable(dense_array, /*nullable=*/true);
+
+    ::arrow::StringDictionaryBuilder builder(default_memory_pool());
+    const auto& string_array = static_cast<const ::arrow::StringArray&>(*dense_array);
+    ASSERT_OK(builder.AppendArray(string_array));
+
+    std::shared_ptr<::arrow::Array> dict_array;
+    ASSERT_OK(builder.Finish(&dict_array));
+    expected_dict_ = MakeSimpleTable(dict_array, /*nullable=*/true);
+
+    // TODO(hatemhelal): Figure out if we can use the following to init the expected_dict_
+    // Currently fails due to DataType mismatch for indices array.
+    //    Datum out;
+    //    FunctionContext ctx(default_memory_pool());
+    //    ASSERT_OK(DictionaryEncode(&ctx, Datum(dense_array), &out));
+    //    expected_dict_ = MakeSimpleTable(out.make_array(), /*nullable=*/true);
+  }
+
+  void TearDown() override {}
+
+  void CheckReadWholeFile(const Table& expected) {
+    std::unique_ptr<FileReader> reader;
+    ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer_),
+                                ::arrow::default_memory_pool(), properties_, &reader));
+
+    std::shared_ptr<Table> actual;
+    ASSERT_OK_NO_THROW(reader->ReadTable(&actual));
+    ::arrow::AssertTablesEqual(*actual, expected, /*same_chunk_layout=*/false);
+  }
+
+  static std::vector<double> null_probabilites() { return {0.0, 0.5, 1}; }
+
+ protected:
+  std::shared_ptr<Table> expected_dense_;
+  std::shared_ptr<Table> expected_dict_;
+  std::shared_ptr<Buffer> buffer_;
+  ArrowReaderProperties properties_;
+};
+
+TEST_P(TestArrowReadDictionary, ReadWholeFileDict) {
+  properties_.set_read_dictionary(0, true);
+  CheckReadWholeFile(*expected_dict_);
+}
+
+TEST_P(TestArrowReadDictionary, ReadWholeFileDense) {
+  properties_.set_read_dictionary(0, false);
+  CheckReadWholeFile(*expected_dense_);
+}
+
+INSTANTIATE_TEST_CASE_P(
+    ReadDictionary, TestArrowReadDictionary,
+    ::testing::ValuesIn(TestArrowReadDictionary::null_probabilites()));
 
 }  // namespace arrow
 

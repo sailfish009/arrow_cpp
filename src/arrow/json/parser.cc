@@ -350,7 +350,7 @@ class RawArrayBuilder<Kind::kObject> {
       std::shared_ptr<Array> values;
       RETURN_NOT_OK(handler.Finish(field_builders_[i], &values));
       child_data[i] = values->data();
-      fields[i] = field(field_names[i].to_string(), values->type(),
+      fields[i] = field((const std::string&)field_names[i], values->type(),
                         field_builders_[i].nullable, Tag(field_builders_[i].kind));
     }
 

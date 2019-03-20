@@ -83,6 +83,8 @@ typedef std::function<void(PyObject*, std::unique_ptr<arrow::flight::Result>*)>
 /// \brief A ResultStream built around a Python callback.
 class ARROW_PYTHON_EXPORT PyFlightResultStream : public arrow::flight::ResultStream {
  public:
+  /// \brief Construct a FlightResultStream from a Python object and callback.
+  /// Must only be called while holding the GIL.
   explicit PyFlightResultStream(PyObject* generator,
                                 PyFlightResultStreamCallback callback);
   Status Next(std::unique_ptr<arrow::flight::Result>* result) override;
@@ -90,6 +92,44 @@ class ARROW_PYTHON_EXPORT PyFlightResultStream : public arrow::flight::ResultStr
  private:
   OwnedRefNoGIL generator_;
   PyFlightResultStreamCallback callback_;
+};
+
+/// \brief A wrapper around a FlightDataStream that keeps alive a
+/// Python object backing it.
+class ARROW_PYTHON_EXPORT PyFlightDataStream : public arrow::flight::FlightDataStream {
+ public:
+  /// \brief Construct a FlightDataStream from a Python object and underlying stream.
+  /// Must only be called while holding the GIL.
+  explicit PyFlightDataStream(PyObject* data_source,
+                              std::unique_ptr<arrow::flight::FlightDataStream> stream);
+  std::shared_ptr<arrow::Schema> schema() override;
+  Status Next(arrow::flight::FlightPayload* payload) override;
+
+ private:
+  OwnedRefNoGIL data_source_;
+  std::unique_ptr<arrow::flight::FlightDataStream> stream_;
+};
+
+/// \brief A callback that obtains the next payload from a Flight result stream.
+typedef std::function<void(PyObject*, arrow::flight::FlightPayload*)>
+    PyGeneratorFlightDataStreamCallback;
+
+/// \brief A FlightDataStream built around a Python callback.
+class ARROW_PYTHON_EXPORT PyGeneratorFlightDataStream
+    : public arrow::flight::FlightDataStream {
+ public:
+  /// \brief Construct a FlightDataStream from a Python object and underlying stream.
+  /// Must only be called while holding the GIL.
+  explicit PyGeneratorFlightDataStream(PyObject* generator,
+                                       std::shared_ptr<arrow::Schema> schema,
+                                       PyGeneratorFlightDataStreamCallback callback);
+  std::shared_ptr<arrow::Schema> schema() override;
+  Status Next(arrow::flight::FlightPayload* payload) override;
+
+ private:
+  OwnedRefNoGIL generator_;
+  std::shared_ptr<arrow::Schema> schema_;
+  PyGeneratorFlightDataStreamCallback callback_;
 };
 
 ARROW_PYTHON_EXPORT
