@@ -118,6 +118,7 @@ set(ARROW_SRCS
     testing/util.cc
     util/basic_decimal.cc
     util/bit-util.cc
+    util/concatenate.cc
     util/compression.cc
     util/cpu-info.cc
     util/decimal.cc
@@ -129,6 +130,7 @@ set(ARROW_SRCS
     util/task-group.cc
     util/thread-pool.cc
     util/trie.cc
+    util/uri.cc
     util/utf8.cc
     vendored/datetime/tz.cpp)
 

@@ -1,19 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 project(arrow)
 
-# add_definitions(-DASIO_STANDALONE)
-# add_definitions(-DASIO_HAS_STD_ADDRESSOF)
-# add_definitions(-DASIO_HAS_STD_ARRAY)
-# add_definitions(-DASIO_HAS_CSTDINT)
-# add_definitions(-DASIO_HAS_CO_AWAIT)
-# add_definitions(-DASIO_HAS_STD_SHARED_PTR)
-# add_definitions(-DASIO_HAS_STD_TYPE_TRAITS)
-# add_definitions(-DASIO_HAS_VARIADIC_TEMPLATES)
-# add_definitions(-DASIO_HAS_STD_FUNCTION)
-# add_definitions(-DASIO_HAS_STD_CHRONO)
-# add_definitions(-DBOOST_ALL_NO_LIB)
-# add_definitions(-DASIO_SEPARATE_COMPILATION)
-
 add_definitions(-DARROW_EXPORTING)
 add_definitions(-DARROW_USE_SIMD)
 add_definitions(-DRAPIDJSON_SSE42)
@@ -26,18 +13,6 @@ set(CMAKE_CONFIGURATION_TYPES "Debug" CACHE STRING "" FORCE)
 include_directories(src)
 include_directories(ext/include)
 include_directories(src/arrow/io)
-
-# aux_source_directory(src/arrow         impl1)
-# aux_source_directory(src/gandiva       impl2)
-# aux_source_directory(src/parquet       impl3)
-# aux_source_directory(src/plasma        impl4)
-# aux_source_directory(src/arrow/io      impl5)
-# aux_source_directory(src/arrow/array   impl6)
-# aux_source_directory(src/arrow/csv     impl7)
-# aux_source_directory(src/arrow/compute impl8)
-# aux_source_directory(src/arrow/flight  impl9)
-# aux_source_directory(src/arrow/gpu     impl9)
-# set(source ${impl1} ${impl5} ${impl6} ${impl7} ${impl8} ${impl9} )
 
 set(ARROW_SRCS
     src/arrow/array.cc
@@ -83,6 +58,7 @@ set(ARROW_SRCS
     src/arrow/testing/util.cc
     src/arrow/util/basic_decimal.cc
     src/arrow/util/bit-util.cc
+    src/arrow/util/concatenate.cc
     src/arrow/util/compression.cc
     src/arrow/util/cpu-info.cc
     src/arrow/util/decimal.cc
@@ -94,8 +70,33 @@ set(ARROW_SRCS
     src/arrow/util/task-group.cc
     src/arrow/util/thread-pool.cc
     src/arrow/util/trie.cc
+    src/arrow/util/uri.cc
     src/arrow/util/utf8.cc
     src/arrow/vendored/datetime/tz.cpp)
+
+# set(PARQUET_SRCS
+#     src/parquet/arrow/reader.cc
+#     src/parquet/arrow/record_reader.cc
+#     src/parquet/arrow/schema.cc
+#     src/parquet/arrow/writer.cc
+#     src/parquet/bloom_filter.cc
+#     src/parquet/column_reader.cc
+#     src/parquet/column_scanner.cc
+#     src/parquet/column_writer.cc
+#     src/parquet/encoding.cc
+#     src/parquet/file_reader.cc
+#     src/parquet/file_writer.cc
+#     src/parquet/metadata.cc
+#     src/parquet/murmur3.cc
+#     src/parquet/printer.cc
+#     src/parquet/schema.cc
+#     src/parquet/statistics.cc
+#     src/parquet/types.cc
+#     src/parquet/util/comparison.cc
+#     src/parquet/util/memory.cc)
+#   src/parquet/parquet_constants.cpp
+#   src/parquet/parquet_types.cpp
+# add_library(arrow STATIC ${ARROW_SRCS} ${PARQUET_SRCS})
 
 
 add_library(arrow STATIC ${ARROW_SRCS})

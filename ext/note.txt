@@ -2,4 +2,5 @@ https://github.com/google/benchmark
 https://github.com/google/googletest
 https://github.com/google/double-conversion
 https://github.com/Tencent/rapidjson
+https://github.com/uriparser/uriparser
 https://dl.bintray.com/boostorg/release/1.69.0/source/boost_1_69_0.7z
