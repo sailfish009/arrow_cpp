@@ -166,7 +166,6 @@ set(PARQUET_SRCS
     file_writer.cc
     metadata.cc
     murmur3.cc
-    parquet_constants.cpp
     parquet_types.cpp
     printer.cc
     schema.cc
@@ -174,6 +173,7 @@ set(PARQUET_SRCS
     types.cc
     util/comparison.cc
     util/memory.cc)
+#    parquet_constants.cpp
 
 # Ensure that thrift compilation is done before using its generated headers
 # in parquet code.
