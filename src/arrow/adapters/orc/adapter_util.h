@@ -15,25 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/csv/options.h"
+#ifndef ARROW_ADAPATER_UTIL_H
+#define ARROW_ADAPATER_UTIL_H
+
+#include <cstdint>
+#include <memory>
+
+#include "arrow/array/builder_base.h"
+#include "arrow/status.h"
+#include "orc/OrcFile.hh"
+
+namespace liborc = orc;
 
 namespace arrow {
-namespace csv {
 
-ParseOptions ParseOptions::Defaults() { return ParseOptions(); }
+namespace adapters {
 
-ConvertOptions ConvertOptions::Defaults() {
-  auto options = ConvertOptions();
-  // Same default null / true / false spellings as in Pandas.
-  options.null_values = {"",     "#N/A", "#N/A N/A", "#NA",     "-1.#IND", "-1.#QNAN",
-                         "-NaN", "-nan", "1.#IND",   "1.#QNAN", "N/A",     "NA",
-                         "NULL", "NaN",  "n/a",      "nan",     "null"};
-  options.true_values = {"1", "True", "TRUE", "true"};
-  options.false_values = {"0", "False", "FALSE", "false"};
-  return options;
-}
+namespace orc {
 
-ReadOptions ReadOptions::Defaults() { return ReadOptions(); }
+Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out);
 
-}  // namespace csv
+Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
+                   int64_t offset, int64_t length, ArrayBuilder* builder);
+}  // namespace orc
+}  // namespace adapters
 }  // namespace arrow
+
+#endif  // ARROW_ADAPATER_UTIL_H

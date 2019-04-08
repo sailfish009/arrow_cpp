@@ -140,6 +140,9 @@ if("${COMPILER_FAMILY}" STREQUAL "clang")
                PROPERTY COMPILE_FLAGS " -Wno-unused-macros ")
 endif()
 
+# Unconditionally install testing headers that are also useful for Arrow consumers.
+add_subdirectory(testing)
+
 if(ARROW_COMPUTE)
   add_subdirectory(compute)
   set(ARROW_SRCS
@@ -202,7 +205,7 @@ endif()
 
 if(ARROW_ORC)
   add_subdirectory(adapters/orc)
-  set(ARROW_SRCS adapters/orc/adapter.cc ${ARROW_SRCS})
+  set(ARROW_SRCS adapters/orc/adapter.cc adapters/orc/adapter_util.cc ${ARROW_SRCS})
 endif()
 
 if(ARROW_TENSORFLOW)

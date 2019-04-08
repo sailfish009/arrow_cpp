@@ -106,22 +106,45 @@ int64_t ArrayData::GetNullCount() const {
 
 int64_t Array::null_count() const { return data_->GetNullCount(); }
 
-bool Array::Equals(const Array& arr) const { return ArrayEquals(*this, arr); }
-
-bool Array::Equals(const std::shared_ptr<Array>& arr) const {
-  if (!arr) {
-    return false;
-  }
-  return Equals(*arr);
+bool Array::Equals(const Array& arr, const EqualOptions& opts) const {
+  return ArrayEquals(*this, arr, opts);
 }
 
-bool Array::ApproxEquals(const Array& arr) const { return ArrayApproxEquals(*this, arr); }
-
-bool Array::ApproxEquals(const std::shared_ptr<Array>& arr) const {
+bool Array::Equals(const std::shared_ptr<Array>& arr, const EqualOptions& opts) const {
   if (!arr) {
     return false;
   }
-  return ApproxEquals(*arr);
+  return Equals(*arr, opts);
+}
+
+bool Array::ApproxEquals(const Array& arr, const EqualOptions& opts) const {
+  return ArrayApproxEquals(*this, arr, opts);
+}
+
+bool Array::ApproxEquals(const std::shared_ptr<Array>& arr,
+                         const EqualOptions& opts) const {
+  if (!arr) {
+    return false;
+  }
+  return ApproxEquals(*arr, opts);
+}
+
+bool Array::RangeEquals(const Array& other, int64_t start_idx, int64_t end_idx,
+                        int64_t other_start_idx) const {
+  return ArrayRangeEquals(*this, other, start_idx, end_idx, other_start_idx);
+}
+
+bool Array::RangeEquals(const std::shared_ptr<Array>& other, int64_t start_idx,
+                        int64_t end_idx, int64_t other_start_idx) const {
+  if (!other) {
+    return false;
+  }
+  return ArrayRangeEquals(*this, *other, start_idx, end_idx, other_start_idx);
+}
+
+bool Array::RangeEquals(int64_t start_idx, int64_t end_idx, int64_t other_start_idx,
+                        const Array& other) const {
+  return ArrayRangeEquals(*this, other, start_idx, end_idx, other_start_idx);
 }
 
 bool Array::RangeEquals(int64_t start_idx, int64_t end_idx, int64_t other_start_idx,
@@ -129,12 +152,7 @@ bool Array::RangeEquals(int64_t start_idx, int64_t end_idx, int64_t other_start_
   if (!other) {
     return false;
   }
-  return RangeEquals(*other, start_idx, end_idx, other_start_idx);
-}
-
-bool Array::RangeEquals(const Array& other, int64_t start_idx, int64_t end_idx,
-                        int64_t other_start_idx) const {
-  return ArrayRangeEquals(*this, other, start_idx, end_idx, other_start_idx);
+  return ArrayRangeEquals(*this, *other, start_idx, end_idx, other_start_idx);
 }
 
 std::shared_ptr<Array> Array::Slice(int64_t offset, int64_t length) const {
@@ -910,8 +928,7 @@ class ArrayDataWrapper {
 std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
   std::shared_ptr<Array> out;
   internal::ArrayDataWrapper wrapper_visitor(data, &out);
-  Status s = VisitTypeInline(*data->type, &wrapper_visitor);
-  DCHECK(s.ok());
+  DCHECK_OK(VisitTypeInline(*data->type, &wrapper_visitor));
   DCHECK(out);
   return out;
 }
