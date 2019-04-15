@@ -13,13 +13,25 @@
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
+// under the License.
 
-#pragma once
+#include "arrow/flight/server_auth.h"
 
-// This header holds the Flight protobuf definitions.
+namespace arrow {
+namespace flight {
 
-// Need to include this first to get our gRPC customizations
-#include "arrow/flight/customize_protobuf.h"  // IWYU pragma: export
+ServerAuthHandler::~ServerAuthHandler() {}
 
-#include "arrow/flight/Flight.grpc.pb.h"  // IWYU pragma: export
-#include "arrow/flight/Flight.pb.h"       // IWYU pragma: export
+NoOpAuthHandler::~NoOpAuthHandler() {}
+Status NoOpAuthHandler::Authenticate(ServerAuthSender* outgoing,
+                                     ServerAuthReader* incoming) {
+  return Status::OK();
+}
+
+Status NoOpAuthHandler::IsValid(const std::string& token, std::string* peer_identity) {
+  *peer_identity = "";
+  return Status::OK();
+}
+
+}  // namespace flight
+}  // namespace arrow
